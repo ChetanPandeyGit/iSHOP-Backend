@@ -4,41 +4,43 @@ const jwt = require("jsonwebtoken");
 const JWT_SECRET = "@chetan";
 const saltround = 10;
 
-const register = async (req, res) => {
-
-  const { email, password, username } = req.body;    
-  User.findOne( {email: email}).then(function(user){  
-    if(user){
-    return (res.status(200).send({ message: 'used same id' }))}
-    else{        
-            bcrypt.hash( password, 10, function(err, hash ){
-                var model = new User({
-                    username: username,
-                    email: email,
-                    password: hash
-                })                           
-                model.save().then( (doneresponse)=>{ if(doneresponse){ res.status(200).send({ message: 'अतिथि देवो भव' })   }; console.log("User Saved")   }   )
-                .catch( (e)=>{ res.json({ message: e  })   }  )
-            })
-    }
-    res.redirect('http://localhost:5173/login');
-})};
+const register = async (req,res,next) => {
+  const { username, email, password} = req.body
+  try {
+      
+      const existingUser = await User.findOne({email:email})
+      if (existingUser) {
+          return res.status(200).json({ message: 'User already registered' });
+        }
+      else{
+          const hashpassword =await bcrypt.hash(password, saltround) 
+          const model = new User({ username:username, email:email ,password:hashpassword })
+          const dbres = await model.save();
+          return res.send({ message: 'User registered successfully' });
+      }      
+  }      
+  catch{
+      res.status(500).send("Server Error")
+  }
+}
 
 const login = async (req, res) => {
   const { email, password } = req.body;
   User.findOne( {email: email }). then( (user)=>{
-    if(!user){ res.status(200).send({ message: "Wrong email or user not registered"  }); console.log("Wrong email or user not registered")    }
+    if(!user){ res.status(200).send({ message: "Wrong email or user not registered"  });   }
     else{
         bcrypt.compare( password, user.password, function(err, comp){
            if(comp==true){  
-               jwt.sign( {email}, 'secretkey', (err, token)=>{  res.status(200).send({ token:token, message: "Signed in successfully"   }); console.log("Signed in successfully")}     )
+               jwt.sign( {email}, JWT_SECRET, (err, token)=>{  res.status(200).send({ token:token, message: "Logged in successfully"   }); }     )
                }
                else{
-                   res.status(200).send({ message: "Id is correct but password is wrong" }); console.log("Id is correct but password is wrong")
+                   res.status(200).send({ message: "Id is correct but password is wrong" });
                }
         })
     }
 })};
+
+
 
 module.exports = {
   register,
